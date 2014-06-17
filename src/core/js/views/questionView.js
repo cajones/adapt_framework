@@ -22,21 +22,204 @@ define(function(require) {
             + " component-" + this.model.get('_layout')
             + " nth-child-" + this.options.nthChild;
         },
-        
+
+        //////
+        // Setup question types
+        ////
+
         preRender: function() {
-            this.setupDefaultSettings();
+            // Blank method for setting up questions before rendering
+            this.setupQuestion();
+            // This method helps setup defualt settings on the model
+            this._setupDefaultSettings();
+
+
+
+            /*this.setupDefaultSettings();
             this.resetQuestion({resetAttempts:true, initialisingScreen:true});
-            this.listenTo(this.model, 'change:_isEnabled', this.onEnabledChanged);
+            this.listenTo(this.model, 'change:_isEnabled', this.onEnabledChanged);*/
+        },
+
+        // Left blank for question setup
+        setupQuestion: function() {},
+
+        _setupDefaultSettings: function() {
+            this.setupButtonSettings();
+            this.setupWeightSettings();
+        },
+
+        setupButtonSettings: function() {
+            // Checks if no buttons object is on the model
+            // Sets button either from global object or component
+            if (!this.model.has("_buttons")) {
+                this.model.set("_buttons", Adapt.course.get("_buttons"));
+            } else {
+                for(var key in this.model.get("_buttons")) {
+                    var value=this.model.get("_buttons")[key];
+                    if (!value) {
+                        this.model.get("_buttons")[key] = Adapt.course.get("_buttons")[key];
+                    }
+                }
+            }
+        },
+
+        setupWeightSettings: function() {
+            // Checks if questionWeight exists and if not use global
+            if (!this.model.has("_questionWeight")) {
+                this.model.set("_questionWeight", Adapt.config.get("_questionWeight"));
+            }
+        },
+
+        //////
+        // Helper methods
+        ////
+
+        // Used to setup the correct, incorrect and partly correct feedback
+        setupFeedback: function() {
+            // This should be moved out
+            if(this.model.get('_selectable') === 1) {
+                // Code to display single feedback
+
+
+                /*if(this.getOptionSpecificFeedback()) {
+                    this.model.set('feedbackMessage', this.getOptionSpecificFeedback());
+                }*/
+            } else {
+
+            }
         },
         
+        // Used to show feedback based upon whether _canShowFeedback is true
+        showFeedback: function() {
+                
+            if (this.model.get('_canShowFeedback')) {
+                Adapt.trigger('questionView:showFeedback', this);
+            } else {
+                Adapt.trigger('questionView:disabledFeedback', this);
+            }
+
+        },
+
+        //////
+        // Compulsory methods
+        ////
+
+        canSubmit: function() {},
+
+        storeUserAnswer: function() {},
+
+        onCannotSubmit: function() {},
+
+        getNumberOfCorrectAnswers: function() {},
+
+        showMarking: function() {
+
+        },
+
+        updateAttempts: function() {
+            if (!this.model.get('_attemptsLeft')) {
+                this.model.set("_attemptsLeft", this.model.get('_attempts'));
+            }
+            this.model.set("_attemptsLeft", this.model.get('_attemptsLeft') - 1);
+        },
+
+        setQuestionAsSubmitted: function() {
+            this.model.set({
+                _isEnabled: false,
+                _isSubmitted: true,
+                _attemptsLeft: this.model.get("_attemptsLeft")
+            });
+            this.$(".component-widget").addClass("submitted");
+        },
+
+        removeInstructionError: function() {
+            this.$(".component-instruction-inner").removeClass("validation-error");
+        },
+
+        showInstructionError: function() {
+            this.$(".component-instruction-inner").addClass("validation-error");
+        },
+
+        setScore: function() {
+            console.log('Needs to set score');
+        },
+
+        markQuestion: function() {
+            console.log('Needs to mark question');
+
+
+            /*var correctCount = this.getNumberOfCorrectAnswers();
+            var score = this.model.get("_questionWeight") * correctCount / this.model.get('_items').length;
+
+            this.model.set({
+                "_numberOfCorrectAnswers": correctCount,
+                "_score": score
+            });
+            this.isCorrect() ? this.onQuestionCorrect() : this.onQuestionIncorrect();*/
+        },
+
+        updateButtons: function() {
+            console.log('update buttons');
+        },
+
+        checkQuestionCompletion: function() {
+            console.log('check if question is complete');
+            if (this.isCorrect()) {
+                console.log('question is correct');
+            } else if (this.isPartlyCorrect()) {
+                console.log('question is partly correct');
+            } else {
+                console.log('question is wrong');
+            }
+        },
+
+        //////
+        // Button interactions
+        ////
+
+        onSubmitClicked: function(event) {
+            event.preventDefault();
+            if(!this.canSubmit()) {
+                this.showInstructionError();
+                this.onCannotSubmit();
+                return;
+            }
+        
+            this.updateAttempts();
+            this.setQuestionAsSubmitted();
+            this.removeInstructionError();
+            this.storeUserAnswer();
+            // Should set question as correct, incorrect or partly
+            this.markQuestion();
+            this.setScore();
+            // Should display markings on the component
+            this.showMarking();
+            this.checkQuestionCompletion();
+            this.updateButtons();
+            this.setupFeedback();
+            this.showFeedback();
+            console.log(this.model);
+        },
+
+        //////
+        // End of button interactions
+        ////
+
+
+
+
+        
+        // not sure
         isCorrect: function() {
             return !!Math.floor(this.model.get('_numberOfCorrectAnswers') / this.model.get('_items').length);
         },
         
+        // not sure
         isPartlyCorrect: function() {
             return !this.isCorrect() && this.model.get('_isAtLeastOneCorrectSelection');
         },
         
+        // not sure
         getNumberOfCorrectAnswers: function() {
             var numberOfCorrectAnswers = 0;
             this.forEachAnswer(function(correct) {
@@ -45,6 +228,7 @@ define(function(require) {
             return numberOfCorrectAnswers;
         },
         
+        // not sure
         getOptionSpecificFeedback: function() {
             // Check if option specific feedback has been set
             var selectedItem = this.getSelectedItems();
@@ -60,26 +244,12 @@ define(function(require) {
                 }
             }
         },
-    
-        getOptionSpecificAudio: function() {
-            return this.getSelectedItems().audio;
-        },
         
+        // not sure
         getSelectedItems: function() {
             var selectedItems = this.model.get('_selectedItems');
             // if no second item exists, return just the first, else return the array
             return !selectedItems[1] ? selectedItems[0] : selectedItems;
-        },
-        
-        markQuestion: function() {
-            var correctCount = this.getNumberOfCorrectAnswers();
-            var score = this.model.get("_questionWeight") * correctCount / this.model.get('_items').length;
-
-            this.model.set({
-                "_numberOfCorrectAnswers": correctCount,
-                "_score": score
-            });
-            this.isCorrect() ? this.onQuestionCorrect() : this.onQuestionIncorrect();
         },
         
         resetQuestion: function(properties) {
@@ -103,38 +273,6 @@ define(function(require) {
                     });
                 }
             }
-        },
-        
-        setupDefaultSettings: function() {
-            if (!this.model.has("_questionWeight")) {
-                this.model.set("_questionWeight", Adapt.config.get("_questionWeight"));
-            }
-            if (!this.model.has("_buttons")) {
-                this.model.set("_buttons", Adapt.course.get("_buttons"));
-            } else {
-                for(var key in this.model.get("_buttons")) {
-                    var value=this.model.get("_buttons")[key];
-                    if (!value) {
-                        this.model.get("_buttons")[key] = Adapt.course.get("_buttons")[key];
-                    }
-                }
-            }
-        },
-    
-        showFeedback: function() {
-            
-            if(this.model.get('_selectable') === 1) {
-                if(this.getOptionSpecificFeedback()) {
-                    this.model.set('feedbackMessage', this.getOptionSpecificFeedback());
-                }
-            }
-
-            if (this.model.get('_canShowFeedback')) {
-                Adapt.trigger('questionView:showFeedback', this);
-            } else {
-                Adapt.trigger('questionView:disabledFeedback', this);
-            }
-
         },
         
         showMarking: function() {
@@ -175,7 +313,6 @@ define(function(require) {
         
         onQuestionCorrect: function() {
             this.onComplete({correct: true});
-            this.model.getParent("article").attributes.score ++;
             this.model.set({"feedbackTitle": this.model.get('title'), "feedbackMessage": this.model.get("_feedback").correct});
         },
         
@@ -217,34 +354,6 @@ define(function(require) {
             this.$(".component-widget").removeClass("submitted");
             this.resetItems();
             $('.button.submit').focus();
-        },
-    
-        onSubmitClicked: function(event) {
-            event.preventDefault();
-            if(!this.canSubmit()) {
-                this.showInstructionError();
-                this.onCannotSubmit();
-                return;
-            } 
-
-            Adapt.tabHistory = $(event.currentTarget).parent('.inner');
-        
-            var attemptsLeft = this.model.get("_attemptsLeft") - 1;
-            this.model.set({
-                _isEnabled: false,
-                _isSubmitted: true,
-                _attemptsLeft: attemptsLeft
-            });
-            this.$(".component-widget").addClass("submitted");
-            this.$(".component-instruction-inner").removeClass("validation-error");
-            
-            this.storeUserAnswer();
-            this.markQuestion();
-            this.showFeedback(); 
-        },
-
-        showInstructionError: function() {
-            this.$(".component-instruction-inner").addClass("validation-error");
         },
     
         onUserAnswerClicked: function(event) {
